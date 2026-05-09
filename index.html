@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HDW Load Balancer — Software Defined Network</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+
+<header>
+  <div class="logo-badge">HDW</div>
+  <div>
+    <h1>Hash-IP · Dynamic-Weight · Routing</h1>
+    <p>Network Load Balancing for Software Defined Networks · Osei Kofi &amp; Ahene, PLOS ONE 18(4) 2023</p>
+  </div>
+  <div class="header-right">
+    <div id="simStatusLabel" style="font-size:10px;color:var(--muted)">IDLE</div>
+    <div class="status-dot inactive" id="statusDot"></div>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- LEFT PANEL -->
+  <div class="panel">
+    <div class="panel-title">Algorithm Config</div>
+
+    <div style="margin-bottom:12px">
+      <span class="algo-pill pill-hash">Hash-IP</span>
+      <span class="algo-pill pill-weight">Weighted Scheduler</span>
+      <span class="algo-pill pill-dsp">DSP</span>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">Request Rate (req/s) <span class="val" id="rateVal">5</span></div>
+      <input type="range" id="rateSlider" min="1" max="50" value="5">
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">Packet Size Range (KB)</div>
+      <div class="pkt-range-grid">
+        <div>
+          <div class="control-label">Min <span class="val" id="minPkt">64</span></div>
+          <input type="range" id="minPktSlider" min="1" max="1024" value="64">
+        </div>
+        <div>
+          <div class="control-label">Max <span class="val" id="maxPkt">1500</span></div>
+          <input type="range" id="maxPktSlider" min="64" max="65536" value="1500">
+        </div>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="control-label">Simulation Mode</div>
+      <select id="modeSelect">
+        <option value="hdw">HDW (Proposed)</option>
+        <option value="dwrr">DWRR — Weighted Round-Robin</option>
+        <option value="wlb">WLB — Binary Node</option>
+        <option value="dwrs">DWRS — Random Selection</option>
+      </select>
+    </div>
+
+    <div class="separator"></div>
+    <button class="btn btn-primary" id="startBtn">▶ Start Simulation</button>
+    <button class="btn btn-secondary" id="resetBtn">↺ Reset</button>
+    <button class="btn btn-secondary" id="configBtn">⚙ Configure Servers</button>
+    <div class="separator"></div>
+
+    <div class="panel-title">Traffic Distribution</div>
+    <div id="distPanel" style="margin-bottom:12px">
+      <div style="color:var(--muted);font-size:10px">No requests yet</div>
+    </div>
+
+    <div class="panel-title">Network Stats</div>
+    <div class="global-stats-grid">
+      <div class="gstat"><div class="gstat-val" id="statRequests">0</div><div class="gstat-lbl">Requests</div></div>
+      <div class="gstat"><div class="gstat-val" id="statCollisions">0</div><div class="gstat-lbl">Hash Collisions</div></div>
+      <div class="gstat"><div class="gstat-val" id="statJitter">0.000</div><div class="gstat-lbl">Avg Jitter (s)</div></div>
+      <div class="gstat"><div class="gstat-val" id="statThroughput">0.0000</div><div class="gstat-lbl">Throughput GB</div></div>
+      <div class="gstat"><div class="gstat-val" id="statReroutes">0</div><div class="gstat-lbl">DSP Reroutes</div></div>
+      <div class="gstat"><div class="gstat-val" id="statSecurity">—</div><div class="gstat-lbl">Hash Security</div></div>
+    </div>
+  </div>
+
+  <!-- RIGHT AREA -->
+  <div class="main-area">
+    <div class="topology-panel">
+      <div class="topo-label">Network Topology — SDN Tree (2 Servers · 3 Core + 4 Agg Switches · 8 Hosts)</div>
+      <canvas id="topoCanvas"></canvas>
+    </div>
+
+    <div class="bottom-split">
+      <div class="metrics-panel">
+        <div class="panel-title">Server Metrics</div>
+        <div id="serverList"></div>
+      </div>
+      <div class="log-panel">
+        <div class="panel-title">Event Log — HDW Pipeline</div>
+        <div id="logContainer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPARISON TABLE -->
+<div class="comparison">
+  <div class="comparison-inner">
+    <div class="panel-title" style="margin-bottom:10px">Algorithm Comparison — Table 4 (Paper: Osei Kofi &amp; Ahene, 2023)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Algorithm</th><th>Throughput</th><th>Secured</th>
+          <th>Congestion Control</th><th>Availability</th><th>Jitter (avg)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>DWRS [3]</td><td class="check">✓</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="jitter-val">0.21</td></tr>
+        <tr><td>WLB [13]</td><td class="cross">✗</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="jitter-val">0.35</td></tr>
+        <tr><td>DWRR [16]</td><td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td><td class="check">✓</td><td class="jitter-val">0.19</td></tr>
+        <tr class="hdw"><td>HDW (Proposed)</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="jitter-val">0.28</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SERVER CONFIG MODAL -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⚙ Server Configuration</h2>
+      <button class="modal-close" id="closeConfig">✕</button>
+    </div>
+    <div class="modal-help">
+      Configure real server parameters as used in the paper.<br>
+      <strong>Max Throughput (Mbps)</strong>: Peak bandwidth the server can handle (e.g. 100, 1000 Mbps).<br>
+      <strong>Queue Capacity (reqs)</strong>: Max concurrent requests before congestion — paper uses capacity × 20 as default.<br>
+      <strong>Mean Pkt Size (KB)</strong>: Initial m<sub>i</sub> value for weighted bandwidth allocation (Eq. 2).<br>
+      <strong>Weight (w<sub>i</sub>)</strong>: Relative scheduling priority; computed as l<sub>i</sub>/m<sub>i</sub> (Eq. 4). Higher = more traffic.
+    </div>
+    <div id="serverConfigRows"></div>
+    <button class="add-server-btn" id="addServerBtn">+ Add Server</button>
+    <div class="cfg-warning" id="cfgWarning" style="display:none">
+      ⚠ Simulation running — changes apply on next Reset + Start.
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm btn-sm-ghost" id="cfgReset">↺ Reset Defaults</button>
+      <button class="btn-sm btn-sm-primary" id="cfgApply">✓ Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- ES Module entry point -->
+<script type="module" src="app.js"></script>
+
+</body>
+</html>
